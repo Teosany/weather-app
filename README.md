@@ -1,12 +1,13 @@
 # Weather App
 
-Check the current weather on any city on the planet. Switch between metric and imperial units.
+Display current weather based on configured location. Data updates every hour automatically.
 
-![Alt img](https://images.ctfassets.net/zlsyc9paq6sa/3uBrJ07WSM40FpolgjInHY/7d886cb4187b52194bf9b63c183a1d3a/1627637330_x.gif)
+![Alt img](https://github.com/user-attachments/assets/c543abb4-f3f2-44e0-be3a-7bb4cd906ef1)
+
 
 ## Features
 
-1. User's ability to search cities
+1. Configuration via JSON file (city coordinates and name)
 
 2. Current local time and date
 
@@ -19,6 +20,9 @@ Check the current weather on any city on the planet. Switch between metric and i
 6. Metric vs Imperial system
 
 7. Error handling and loading info
+   
+8. Hourly data updates
+
 
 ## Installation
 
@@ -27,20 +31,22 @@ Check the current weather on any city on the planet. Switch between metric and i
 2. `cd weather-app`
 
 3. `npm install`
+   
+4. Change config.json in the root directory to the data of the city you need
 
-4. Log-in to [Openweathermap.com](https://openweathermap.org/)
+6. `npm run dev`
 
-5. Create an API key
+## API
 
-6. `cp .env.example .env.local`
+The application uses the Open-Meteo API for weather data. No API key required.
 
-7. Paste API key for `OPENWEATHER_API_KEY`
+## Project Context
 
-8. `npm run dev`
-
-## Contributions
-
-Any feature requests and pull requests are welcome!
+This project is a modification of the original weather-app. Main changes include:
+	•	Migration from OpenWeatherMap to Open-Meteo API
+	•	Replacement of city search with JSON configuration
+	•	Implementation of automatic hourly updates
+	•	Removal of API key requirement
 
 ## License
 
