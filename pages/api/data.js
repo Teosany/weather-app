@@ -23,63 +23,99 @@ const weatherCodeMapping = {
     99: {icon: "11", description: "Thunderstorm with heavy hail"}
 }
 
-
 export default async function handler(req, res) {
-    const {cityInput} = req.body
+    try {
+        const {cityInput} = req.body
 
-    const getWeatherData = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${cityInput.latitude}&longitude=${cityInput.longitude}&\
+        if (!cityInput || !cityInput.latitude || !cityInput.longitude) {
+            return res.status(400).json({
+                error: "Missing required location parameters"
+            })
+        }
+
+        const getWeatherData = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${cityInput.latitude}&longitude=${cityInput.longitude}&\
 current_weather=true&timezone=auto&timeformat=unixtime&daily=sunrise,sunset&minutely_15=visibility,relative_humidity_2m,\
 apparent_temperature`
-    )
-    const data = await getWeatherData.json()
+        )
 
-    const mappedIcon = weatherCodeMapping[data.current_weather.weathercode].icon
-    const authenticDescription = weatherCodeMapping[data.current_weather.weathercode].description
-    const mappedIconSuffix = data.current_weather.is_day === 1 ? "d" : "n"
-    const authenticIcon = `${mappedIcon}${mappedIconSuffix}`
+        if (!getWeatherData.ok) {
+            return res.status(getWeatherData.status).json({
+                error: "Failed to fetch weather data"
+            })
+        }
 
-    const currentTime = data.current_weather.time
-    const dt = Math.floor(Date.now() / 1000)
-    const timezone = data.utc_offset_seconds
-    const timeIndex = data.minutely_15.time.findIndex(time => time == currentTime)
+        const data = await getWeatherData.json()
 
-    const visibility = data.minutely_15.visibility[timeIndex]
-    const humidity = data.minutely_15.relative_humidity_2m[timeIndex]
-    const apparentTemperature = data.minutely_15.apparent_temperature[timeIndex]
+        const {
+            current_weather: {
+                temperature = 0,
+                windspeed = 0,
+                winddirection = 0,
+                weathercode = 3,
+                is_day = 0,
+                time
+            },
+            minutely_15: {
+                time: minutely_time = [],
+                visibility = [],
+                relative_humidity_2m = [],
+                apparent_temperature = [],
+            },
+            daily: {
+                sunrise = [],
+                sunset = []
+            },
+            utc_offset_seconds = 0
+        } = data
 
-    const temp = data.current_weather.temperature
-    const windSpeed = data.current_weather.windspeed
-    const windDeg = data.current_weather.winddirection
-    const sunrise = data.daily.sunrise[0]
-    const sunset = data.daily.sunset[0]
+        const mappedIcon = weatherCodeMapping[weathercode]?.icon || "03"
+        const authenticDescription = weatherCodeMapping[weathercode]?.description || "Unknown weather"
+        const mappedIconSuffix = is_day === 1 ? "d" : "n"
+        const authenticIcon = `${mappedIcon}${mappedIconSuffix}`
 
-    const responseData = {
-        "weather": [
-            {
-                "description": authenticDescription,
-                "icon": authenticIcon
-            }
-        ],
-        "main": {
-            "temp": temp,
-            "feels_like": apparentTemperature,
-            "humidity": humidity,
-        },
-        "visibility": visibility,
-        "wind": {
-            "speed": windSpeed,
-            "deg": windDeg
-        },
-        "dt": dt,
-        "sys": {
-            "country": cityInput.country,
-            "sunrise": sunrise,
-            "sunset": sunset
-        },
-        "timezone": timezone,
-        "name": cityInput.city,
+        const timeNow = Math.floor(Date.now() / 1000)
+        const timeIndex = minutely_time.findIndex(t => t === time) || 0
+
+        const currentVisibility = Math.min(visibility[timeIndex] || 10000)
+        const currentHumidity = relative_humidity_2m[timeIndex] || 50
+        const currentFeelsLike = apparent_temperature[timeIndex] || temperature
+
+        const responseData = {
+            "weather": [
+                {
+                    "description": authenticDescription,
+                    "icon": authenticIcon
+                }
+            ],
+            "main": {
+                "temp": temperature,
+                "feels_like": currentFeelsLike,
+                "humidity": currentHumidity,
+            },
+            "visibility": currentVisibility,
+            "wind": {
+                "speed": windspeed,
+                "deg": winddirection
+            },
+            "dt": timeNow,
+            "sys": {
+                "country": cityInput.country || "?",
+                "sunrise": sunrise[0] || "?",
+                "sunset": sunset[0] || "?"
+            },
+            "timezone": utc_offset_seconds,
+            "name": cityInput.city || "?",
+        }
+
+        res.status(200).json(responseData)
+    } catch (error) {
+        console.error("API error: ", error)
+        return res.status(500).json({
+            error: process.env.NODE_ENV === "development"
+                ? "Internal Server Error"
+                : "Unable to load weather data",
+            message: process.env.NODE_ENV === "development" ? error.message : undefined
+        })
     }
-
-    res.status(200).json(responseData)
 }
